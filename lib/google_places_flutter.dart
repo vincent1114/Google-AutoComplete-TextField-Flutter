@@ -1,12 +1,16 @@
 library google_places_flutter;
 
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_places_flutter/SignatureInfo.dart';
 import 'package:google_places_flutter/model/place_details.dart';
 import 'package:google_places_flutter/model/place_type.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 
 import 'package:dio/dio.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'DioErrorHandler.dart';
@@ -88,7 +92,7 @@ class _GooglePlaceAutoCompleteTextFieldState
   bool isSearched = false;
 
   bool isCrossBtn = true;
-  late var _dio;
+  late Dio _dio;
 
   CancelToken? _cancelToken = CancelToken();
 
@@ -177,6 +181,19 @@ class _GooglePlaceAutoCompleteTextFieldState
     if (_cancelToken?.isCancelled == false) {
       _cancelToken?.cancel();
       _cancelToken = CancelToken();
+    }
+
+    // set up dio for google restricted api
+    // android requires bundleId and signing certificate in SHA1
+    // ios requires bundleId
+    // https://stackoverflow.com/questions/25875845/how-is-google-verifying-sha1-and-package-name-in-api-calls
+    PackageInfo packageInfo = await PackageInfo.fromPlatform();
+
+    if (Platform.isAndroid) {
+      _dio.options.headers['x-android-package'] = packageInfo.packageName;
+      _dio.options.headers['x-android-cert'] = await SignatureInfo.getSHA1();
+    } else if (Platform.isIOS) {
+      _dio.options.headers['x-ios-bundle-identifier'] = packageInfo.packageName;
     }
 
     // print("urlll $apiURL");
